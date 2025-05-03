@@ -4,6 +4,8 @@ import { config } from "dotenv";
 import cors from "cors";
 config();
 import UserRouter from "./routers/user.routes.js";
+import TeacherRouter from "./routers/teacher.routes.js";
+import StudentRouter from "./routers/student.routes.js";
 
 const app = express();
 
@@ -20,6 +22,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/user", UserRouter);
+app.use("/api/teacher", TeacherRouter);
+app.use("/api/student", StudentRouter);
 
 app.listen(7777, () => {
   console.log("server has ben started on port 7777");
