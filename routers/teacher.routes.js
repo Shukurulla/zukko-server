@@ -2,7 +2,7 @@ import express from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import authMiddleware from "../middlewares/authmiddleware.js";
-import { teacherVideos } from "../constants/index.js";
+import { materials, teacherVideos } from "../constants/index.js";
 import teacherModel from "../models/teacher.model.js";
 import studentModel from "../models/student.model.js";
 
@@ -127,6 +127,14 @@ router.post("/lesson/complate/:id", authMiddleware, async (req, res) => {
     res.json({ status: "success", message: "success", data: updateUser });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
+router.get("/materials", authMiddleware, async (req, res) => {
+  try {
+    res.json({ status: "success", data: materials });
+  } catch (error) {
+    res.json({ status: "error", message: error.message });
   }
 });
 export default router;

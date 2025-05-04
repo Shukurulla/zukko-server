@@ -144,3 +144,31 @@ export const studentVideos = [
       "🏫IQROKIDS Intellektni Rivojlantirish Markazi 👨‍🏫Pedagoglar uchun Mental Arifmetika kurslari",
   },
 ];
+
+export const materials = [
+  {
+    title: "6 g'a 9 kartochkalar.pdf",
+    link: "https://kepket.uz/media/6 g'a 9 kartochkalar.pdf",
+    type: "pdf",
+  },
+  {
+    title: "A4 lipuchklı oyın.pdf",
+    link: "https://kepket.uz/media/A4 lipuchklı oyın.pdf",
+    type: "pdf",
+  },
+  {
+    title: "markerli oyin 2.pdf",
+    link: "https://kepket.uz/media/markerli oyin 2.pdf",
+    type: "pdf",
+  },
+  {
+    title: "markerli oyin.pdf",
+    link: "https://kepket.uz/media/markerli oyin.pdf",
+    type: "pdf",
+  },
+  {
+    title: "ssenariy mnemonika.pptx",
+    link: "https://kepket.uz/media/ssenariy mnemonika.pptx",
+    type: "pptx",
+  },
+];
