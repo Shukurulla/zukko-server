@@ -1,24 +1,25 @@
 import express from "express";
-import userModel from "../models/user.model.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import authMiddleware from "../middlewares/authmiddleware.js";
-import { teacherVideos } from "../constants/index.js";
+import { materials, teacherVideos } from "../constants/index.js";
+import teacherModel from "../models/teacher.model.js";
+import studentModel from "../models/student.model.js";
 
 const router = express.Router();
-
 router.post("/sign", async (req, res) => {
   try {
     const { password, login } = req.body;
-    const findUser = await userModel.findOne({ login });
-    if (findUser) {
+    const findStudent = await studentModel.findOne({ login });
+    const findTeacher = await teacherModel.findOne({ login });
+    if (findStudent || findTeacher) {
       return res.status(400).json({
         status: "error",
         message: "bunday login oldin ishlatilgan",
       });
     }
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await userModel.create({
+    const user = await teacherModel.create({
       ...req.body,
       password: hashedPassword,
     });
@@ -33,7 +34,7 @@ router.post("/sign", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { password, login } = req.body;
-    const findUser = await userModel.findOne({ login });
+    const findUser = await teacherModel.findOne({ login });
     if (!findUser) {
       return res.status(400).json({
         status: "error",
@@ -57,7 +58,7 @@ router.post("/login", async (req, res) => {
 router.get("/profile", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
-    const findUser = await userModel.findById(userId);
+    const findUser = await teacherModel.findById(userId);
     if (!findUser) {
       return res.status(400).json({
         status: "error",
@@ -65,7 +66,7 @@ router.get("/profile", authMiddleware, async (req, res) => {
       });
     }
 
-    res.json({ status: "success", data: findUser });
+    res.json({ status: "success", data: { user: findUser } });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
   }
@@ -74,7 +75,7 @@ router.get("/profile", authMiddleware, async (req, res) => {
 router.get("/lessons", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
-    const findUser = await userModel.findById(userId);
+    const findUser = await teacherModel.findById(userId);
 
     if (!findUser) {
       return res.status(400).json({
@@ -99,7 +100,7 @@ router.get("/lessons", authMiddleware, async (req, res) => {
 router.post("/lesson/complate/:id", authMiddleware, async (req, res) => {
   try {
     const { userId } = req.userData;
-    const findUser = await userModel.findById(userId);
+    const findUser = await teacherModel.findById(userId);
     if (!findUser) {
       return res
         .status(400)
@@ -112,9 +113,13 @@ router.post("/lesson/complate/:id", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday video topilmadi" });
     }
     if (findUser.complateLessons.find((c) => c == req.params.id)) {
-      return res.json({ status: "error", message: "Video oldin tamomlangan" });
+      return res.json({
+        status: "success",
+        message: "Video oldin tamomlangan",
+        data: findUser,
+      });
     }
-    const updateUser = await userModel.findByIdAndUpdate(
+    const updateUser = await teacherModel.findByIdAndUpdate(
       userId,
       {
         $set: {
@@ -126,6 +131,14 @@ router.post("/lesson/complate/:id", authMiddleware, async (req, res) => {
     res.json({ status: "success", message: "success", data: updateUser });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
+router.get("/materials", authMiddleware, async (req, res) => {
+  try {
+    res.json({ status: "success", data: materials });
+  } catch (error) {
+    res.json({ status: "error", message: error.message });
   }
 });
 

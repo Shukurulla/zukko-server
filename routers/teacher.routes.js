@@ -66,7 +66,7 @@ router.get("/profile", authMiddleware, async (req, res) => {
       });
     }
 
-    res.json({ status: "success", data: findUser });
+    res.json({ status: "success", data: { user: findUser } });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
   }
@@ -113,7 +113,11 @@ router.post("/lesson/complate/:id", authMiddleware, async (req, res) => {
         .json({ status: "error", message: "Bunday video topilmadi" });
     }
     if (findUser.complateLessons.find((c) => c == req.params.id)) {
-      return res.json({ status: "error", message: "Video oldin tamomlangan" });
+      return res.json({
+        status: "success",
+        message: "Video oldin tamomlangan",
+        data: findUser,
+      });
     }
     const updateUser = await teacherModel.findByIdAndUpdate(
       userId,
@@ -137,4 +141,5 @@ router.get("/materials", authMiddleware, async (req, res) => {
     res.json({ status: "error", message: error.message });
   }
 });
+
 export default router;

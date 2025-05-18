@@ -27,12 +27,23 @@ const studentSchema = new mongoose.Schema(
       required: true,
     },
     complateLessons: {
-      type: Object,
+      type: Array,
       default: [],
     },
     role: {
       type: String,
       default: "student",
+    },
+    certificate: {
+      id: {
+        type: String,
+      },
+      issueDate: {
+        type: Date,
+      },
+      filename: {
+        type: String,
+      },
     },
   },
   {
