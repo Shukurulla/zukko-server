@@ -5,19 +5,6 @@ import authMiddleware from "../middlewares/authmiddleware.js";
 import { studentVideos } from "../constants/index.js";
 import studentModel from "../models/student.model.js";
 import teacherModel from "../models/teacher.model.js";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-
-// Get the directory name
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Create certificates directory if it doesn't exist
-const certificatesDir = path.join(__dirname, "..", "public", "certificates");
-if (!fs.existsSync(certificatesDir)) {
-  fs.mkdirSync(certificatesDir, { recursive: true });
-}
 
 const router = express.Router();
 router.post("/sign", async (req, res) => {
@@ -152,63 +139,6 @@ router.post("/lesson/complate/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// Certificate generation function
-const generateCertificate = async (user) => {
-  try {
-    // Create filename for the certificate
-    const filename = `${user._id.toString()}.pdf`;
-    const certificatePath = path.join(certificatesDir, filename);
-
-    // Check if certificate already exists
-    if (fs.existsSync(certificatePath)) {
-      return {
-        exists: true,
-        path: certificatePath,
-        filename: filename,
-      };
-    }
-
-    // If certificate doesn't exist, generate it
-    // Here we'd normally use a PDF generation library like PDFKit
-    // For demonstration, we'll create a simple text file
-    const certificateContent = `
-      CERTIFICATE OF COMPLETION
-      
-      This certifies that
-      
-      ${user.firstname} ${user.lastname}
-      
-      has successfully completed the Mental Arifmetika
-      course on ${new Date().toLocaleDateString()}
-      
-      Certificate ID: CERT-${user._id.toString().substring(0, 8)}
-    `;
-
-    // Write the certificate file
-    fs.writeFileSync(certificatePath, certificateContent);
-
-    // Add certificate info to user record
-    await studentModel.findByIdAndUpdate(user._id, {
-      $set: {
-        certificate: {
-          id: `CERT-${user._id.toString().substring(0, 8)}`,
-          issueDate: new Date(),
-          filename: filename,
-        },
-      },
-    });
-
-    return {
-      exists: false,
-      path: certificatePath,
-      filename: filename,
-    };
-  } catch (error) {
-    console.error("Error generating certificate:", error);
-    throw error;
-  }
-};
-
 // Certificate verification endpoint
 router.get("/certificate", authMiddleware, async (req, res) => {
   try {
@@ -231,43 +161,28 @@ router.get("/certificate", authMiddleware, async (req, res) => {
     );
 
     if (completedAll) {
-      // Check if user already has a certificate
-      let certificateInfo;
-      if (findUser.certificate) {
-        // Certificate already exists in user record
-        certificateInfo = {
-          exists: true,
-          filename: findUser.certificate.filename,
-        };
-      } else {
-        // Generate a new certificate
-        certificateInfo = await generateCertificate(findUser);
-      }
-
-      // Get the server base URL
-      const baseUrl =
-        process.env.SERVER_URL || "https://zukko-server.vercel.app";
-
-      // Generate certificate data
+      // For completed students, provide certificate info
+      // Check if user already has certificate data in their record
+      const hasSavedCertificate = findUser.certificate && findUser.certificate.id;
+      
       const certificateData = {
         available: true,
         studentName: `${findUser.firstname} ${findUser.lastname}`,
-        issueDate: findUser.certificate?.issueDate
+        issueDate: hasSavedCertificate
           ? new Date(findUser.certificate.issueDate).toISOString().split("T")[0]
           : new Date().toISOString().split("T")[0],
-        certificateId:
-          findUser.certificate?.id ||
-          `CERT-${findUser._id.toString().substring(0, 8)}`,
-        downloadUrl: `${baseUrl}/public/certificates/${certificateInfo.filename}`,
-        previewUrl: `${baseUrl}/public/certificates/${certificateInfo.filename}`,
-        justGenerated: !certificateInfo.exists,
+        certificateId: hasSavedCertificate
+          ? findUser.certificate.id
+          : `CERT-${findUser._id.toString().substring(0, 8)}`,
+        // Using kepket.uz domain for both URLs
+        downloadUrl: `https://kepket.uz/media/certificates/${findUser._id}.pdf`,
+        previewUrl: `https://kepket.uz/media/certificates/${findUser._id}.pdf`,
+        justGenerated: false,
       };
 
       res.json({
         status: "success",
-        message: certificateInfo.exists
-          ? "Sertifikat mavjud"
-          : "Sertifikat endigina tayyorlandi",
+        message: "Sertifikat mavjud",
         data: certificateData,
       });
     } else {
@@ -300,33 +215,6 @@ router.get("/certificate", authMiddleware, async (req, res) => {
     }
   } catch (error) {
     console.error("Certificate error:", error);
-    res.status(500).json({ status: "error", message: error.message });
-  }
-});
-
-// Endpoint to serve certificate files
-router.get("/certificate/download/:filename", async (req, res) => {
-  try {
-    const { filename } = req.params;
-    const certificatePath = path.join(certificatesDir, filename);
-
-    // Check if file exists
-    if (!fs.existsSync(certificatePath)) {
-      return res.status(404).json({
-        status: "error",
-        message: "Sertifikat topilmadi",
-      });
-    }
-
-    // Set appropriate headers
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
-
-    // Send the file
-    const fileStream = fs.createReadStream(certificatePath);
-    fileStream.pipe(res);
-  } catch (error) {
-    console.error("Download error:", error);
     res.status(500).json({ status: "error", message: error.message });
   }
 });
