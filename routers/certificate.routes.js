@@ -7,6 +7,7 @@ import Client from "ssh2-sftp-client";
 import Certificate from "../models/Certificate.js";
 import Student from "../models/student.model.js";
 import authMiddleware from "../middlewares/authmiddleware.js";
+import path from "path";
 import studentModel from "../models/student.model.js";
 import { studentVideos } from "../constants/index.js";
 
@@ -56,67 +57,6 @@ const uploadToSftp = async (pdfBuffer, userId) => {
   }
 };
 
-// Shared function to generate certificate data
-const generateCertificateData = async (student) => {
-  // Create a PDF document
-  const doc = new PDFDocument({ size: [842, 595] });
-  const buffers = [];
-
-  doc.on("data", buffers.push.bind(buffers));
-
-  // Title - SERTIFIKAT
-  doc
-    .font("Helvetica-Bold")
-    .fontSize(30)
-    .fillColor("#215A7A")
-    .text("SERTIFIKAT", 0, 100, { align: "center", width: 842 });
-
-  // Mental Arifmetika Kursi
-  doc
-    .font("Helvetica")
-    .fontSize(14)
-    .fillColor("black")
-    .text("Mental Arifmetika Kursi", 0, 140, { align: "center", width: 842 });
-
-  // Acknowledgment text
-  doc
-    .fontSize(12)
-    .fillColor("black")
-    .text("Ushbu sertifikat bilan", 0, 160, { align: "center", width: 842 });
-
-  // Student name
-  doc.fontSize(20).text(`${student.firstname} ${student.lastname}`, 0, 200, {
-    align: "center",
-    width: 842,
-  });
-
-  // Main body text
-  doc
-    .fontSize(14)
-    .text(
-      "Mental arifmetika kursini muvaffaqiyatli tamomlagani uchun taqdirlanadi.\n" +
-        "Sizning bu yutug'ingizdan faxrlanamiz! Kelajakda ham muvaffaqiyatlar tilaymiz!",
-      0,
-      240,
-      { align: "center", width: 842 }
-    );
-
-  // Signatures
-  doc.fontSize(12).text("Direktor", 180, 400);
-  doc.text("_________________", 170, 420);
-  doc.text("Tashkilotchi", 570, 400);
-  doc.text("_________________", 570, 420);
-
-  // Finalize PDF
-  doc.end();
-
-  return new Promise((resolve) => {
-    doc.on("end", () => {
-      resolve(Buffer.concat(buffers));
-    });
-  });
-};
-
 // Route to generate certificate
 router.post("/generate-certificate", authMiddleware, async (req, res) => {
   try {
@@ -131,7 +71,6 @@ router.post("/generate-certificate", authMiddleware, async (req, res) => {
       return res.status(404).json({ message: "Talaba topilmadi" });
     }
 
-    // Check if student has already completed certificate
     const existingCertificate = await Certificate.findOne({ userId });
     if (existingCertificate) {
       return res.status(200).json({
@@ -140,63 +79,95 @@ router.post("/generate-certificate", authMiddleware, async (req, res) => {
       });
     }
 
-    // Check if student has completed all videos
-    const allVideos = studentVideos;
-    const completedAll = allVideos.every((video) =>
-      student.complateLessons.includes(video.id.toString())
+    const certificateUrl = `https://kepket.uz/media/certificates/${userId}.pdf`;
+    const qrCodeData = await QRCode.toDataURL(certificateUrl);
+
+    const doc = new PDFDocument({ size: [842, 595] });
+    const buffers = [];
+    doc.on("data", buffers.push.bind(buffers));
+    doc.on("end", async () => {
+      const pdfBuffer = Buffer.concat(buffers);
+
+      try {
+        const uploadedUrl = await uploadToSftp(pdfBuffer, userId);
+
+        const newCertificate = new Certificate({
+          userId,
+          username: student.firstname,
+          lastname: student.lastname,
+          certificateUrl: uploadedUrl,
+        });
+        await newCertificate.save();
+
+        res.status(201).json({
+          message: "Sertifikat muvaffaqiyatli yaratildi va yuklandi",
+          certificateUrl: uploadedUrl,
+        });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: error.message });
+      }
+    });
+
+    // Orqa fon rasmini qo'shish
+    const backgroundPath = path.join(
+      process.cwd(),
+      "assets",
+      "certificate-bg.png"
     );
+    doc.image(backgroundPath, 0, 0, { width: 842, height: 595 });
 
-    if (!completedAll) {
-      return res.status(400).json({
-        message:
-          "Barcha videolar ko'rilmagan. Sertifikat olish uchun barcha videolarni ko'rib chiqish kerak.",
-      });
-    }
+    // Title - SERTIFIKAT (qalinroq va rang o'zgartirildi)
+    doc
+      .font("Helvetica-Bold") // Qalin shrift
+      .fontSize(30)
+      .fillColor("#215A7A") // Rangni o'zgartirish
+      .text("SERTIFIKAT", 0, 100, { align: "center", width: 842 });
 
-    // Generate PDF
-    const pdfBuffer = await generateCertificateData(student);
+    // Mental Arifmetika Kursi (pastga tushirildi)
+    doc
+      .font("Helvetica") // Oddiy shrift
+      .fontSize(14)
+      .fillColor("black") // Standart qora rang
+      .text("Mental Arifmetika Kursi", 0, 140, { align: "center", width: 842 }); // 80 dan 90 ga tushirildi
 
-    try {
-      // Upload to SFTP server
-      const certificateUrl = await uploadToSftp(pdfBuffer, userId);
+    // Acknowledgment text
+    doc
+      .fontSize(12)
+      .fillColor("black")
+      .text("Ushbu sertifikat bilan", 0, 160, { align: "center", width: 842 });
 
-      // Save certificate in database
-      const newCertificate = new Certificate({
-        userId,
-        username: student.firstname,
-        lastname: student.lastname,
-        certificateUrl,
-      });
-      await newCertificate.save();
+    // Student name
+    doc.fontSize(20).text(`${student.firstname} ${student.lastname}`, 0, 200, {
+      align: "center",
+      width: 842,
+    });
 
-      // Update student record with certificate info
-      await studentModel.findByIdAndUpdate(userId, {
-        certificate: {
-          id: `CERT-${userId.toString().substring(0, 8)}`,
-          issueDate: new Date(),
-          filename: `${userId}.pdf`,
-        },
-      });
+    // Main body text (kattalashtirildi)
+    doc
+      .fontSize(14) // 12 dan 14 ga oshirildi
+      .text(
+        "Mental arifmetika kursini muvaffaqiyatli tamomlagani uchun taqdirlanadi.\n" +
+          "Sizning bu yutug'ingizdan faxrlanamiz! Kelajakda ham muvaffaqiyatlar tilaymiz!",
+        0,
+        240,
+        { align: "center", width: 842 }
+      );
 
-      res.status(201).json({
-        message: "Sertifikat muvaffaqiyatli yaratildi va yuklandi",
-        certificateUrl,
-      });
-    } catch (error) {
-      console.error("Certificate generation error:", error);
+    // Signatures
+    doc.fontSize(12).text("Direktor", 170, 400);
+    doc.text("_________________", 170, 420);
+    doc.text("Tashkilotchi", 570, 400);
+    doc.text("_________________", 570, 420);
 
-      // Provide the user with a static URL if SFTP upload fails
-      const fallbackUrl = `https://kepket.uz/media/certificates/${userId}.pdf`;
+    // Add QR code
+    doc.image(qrCodeData, 370, 350, { width: 100, height: 100 });
 
-      res.status(200).json({
-        message:
-          "Sertifikat yaratildi, lekin serverga yuklanmadi. Keyinroq yuklanadi.",
-        certificateUrl: fallbackUrl,
-      });
-    }
+    // Finalize PDF
+    doc.end();
   } catch (error) {
-    console.error("Certificate generation error:", error);
-    res.status(500).json({ message: "Server xatosi: " + error.message });
+    console.error(error);
+    res.status(500).json({ message: "Server xatosi" });
   }
 });
 
@@ -275,6 +246,18 @@ router.get("/", authMiddleware, async (req, res) => {
         },
       });
     }
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
+});
+
+router.delete("/all-delete", async (req, res) => {
+  try {
+    const certificates = await Certificate.find();
+    for (let i = 0; i < certificates.length; i++) {
+      await Certificate.findByIdAndDelete(certificates[i]._id);
+    }
+    res.json({ message: "clear" });
   } catch (error) {
     res.status(500).json({ status: "error", message: error.message });
   }
