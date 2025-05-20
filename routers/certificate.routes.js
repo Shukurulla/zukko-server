@@ -22,7 +22,7 @@ const uploadToSftp = async (pdfBuffer, userId) => {
       host: "45.134.39.117",
       port: 22,
       username: "root",
-      password: process.env.SFTP_PASSWORD,
+      password: "CH7aQhydDipRB9b1Jjrv",
       retries: 3,
       retryDelay: 2000,
     });
