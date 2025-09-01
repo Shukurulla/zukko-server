@@ -34,7 +34,9 @@ router.post("/sign", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { password, login } = req.body;
-    const findUser = await teacherModel.findOne({ login });
+    const findStudent = await teacherModel.findOne({ login });
+    const findTeacher = await studentModel.findOne({ login });
+    const findUser = findStudent || findTeacher;
     if (!findUser) {
       return res.status(400).json({
         status: "error",
