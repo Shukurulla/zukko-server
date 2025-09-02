@@ -19,10 +19,10 @@ const uploadToSftp = async (pdfBuffer, userId) => {
   try {
     console.log("SFTP serverga ulanish boshlanmoqda...");
     await sftp.connect({
-      host: "45.134.39.117",
+      host: "185.197.195.71",
       port: 22,
       username: "root",
-      password: "CH7aQhydDipRB9b1Jjrv",
+      password: "J?ea&DqT47!:",
       retries: 3,
       retryDelay: 2000,
     });
@@ -41,7 +41,7 @@ const uploadToSftp = async (pdfBuffer, userId) => {
     await sftp.end();
     console.log("SFTP ulanishi yopildi");
 
-    return `https://kepket.uz/media/certificates/${userId}.pdf`;
+    return `https://vpsserver.kerek.uz/certificates/${userId}.pdf`;
   } catch (error) {
     console.error("SFTP xatosi:", error);
     if (sftp) {
@@ -79,7 +79,7 @@ router.post("/generate-certificate", authMiddleware, async (req, res) => {
       });
     }
 
-    const certificateUrl = `https://kepket.uz/media/certificates/${userId}.pdf`;
+    const certificateUrl = `https://vpsserver.kerek.uz/certificates/${userId}.pdf`;
     const qrCodeData = await QRCode.toDataURL(certificateUrl);
 
     const doc = new PDFDocument({ size: [842, 595] });
@@ -207,10 +207,10 @@ router.get("/", authMiddleware, async (req, res) => {
           `CERT-${userId.toString().substring(0, 8)}`,
         downloadUrl:
           existingCertificate?.certificateUrl ||
-          `https://kepket.uz/media/certificates/${userId}.pdf`,
+          `https://vpsserver.kerek.uz/certificates/${userId}.pdf`,
         previewUrl:
           existingCertificate?.certificateUrl ||
-          `https://kepket.uz/media/certificates/${userId}.pdf`,
+          `https://vpsserver.kerek.uz/certificates/${userId}.pdf`,
       };
 
       res.json({
